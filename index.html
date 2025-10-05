@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bonquasious Terminal</title>
   <style>
     body {
@@ -32,7 +32,7 @@
     #input {
       background: transparent;
       border: none;
-      color: inherit;
+      color: #00ff66;
       flex-grow: 1;
       font-family: inherit;
       font-size: 16px;
@@ -50,143 +50,186 @@
   <script>
     const terminal = document.getElementById("terminal");
     const input = document.getElementById("input");
-
     const moveMap = { rock: 0, paper: 1, scissors: 2 };
     const reverseMap = ["rock", "paper", "scissors"];
     const winTaunts = [
-      "I win!!! Loser >:)",
-      "Easy peasy lemon squeezy B^)",
-      "You really thought you could beat me? :^)",
-      "Ez git gud bud ;)"
+      "I win!!! Loser!!! >:)",
+      "Easy peasy lemon squeezy B)",
+      "You really thought you could beat me? lmao ;)",
+      "Ez git gud bud :^)"
     ];
     const loseTaunts = [
-      "You win, barely. I just felt bad for you >:(",
-      "Lucky shot ;(",
-      "I let you win this time B^)",
-      "Yeah, you’re welcome :(",
+      "You win, barely. I just felt bad for you. ;)",
+      "Lucky shot >:(",
+      "I let you win this time. :^)",
+      "Yeah, you’re welcome. >:|",
+      "FRICK YOU!!! >:("
     ];
     const incorrectTaunts = [
-      "That's not a move, idiot. Choose rock, paper, or scissors",
-      "Do you even know how to spell? Rock, paper or scissors, dummy",
-      "Try again, genius. It's rock, paper, or scissors"
+      "That's not a move, idiot. Choose rock, paper, or scissors. >:|",
+      "Do you even know how to spell? Rock, paper or scissors, dummy. ;)",
+      "Try again, genius. It's rock, paper, or scissors. B)"
     ];
 
-    // Load localStorage
-    let playerHistory = JSON.parse(localStorage.getItem("bonquasious_history")) || [];
-    let score = JSON.parse(localStorage.getItem("bonquasious_score")) || { wins: 0, losses: 0, ties: 0 };
-    let playerName = localStorage.getItem("bonquasious_name") || "";
-    let evilMode = localStorage.getItem("bonquasious_evil") === "true" || false;
+    let playerHistory = JSON.parse(localStorage.getItem("playerHistory")) || [];
+    let wins = parseInt(localStorage.getItem("wins")) || 0;
+    let losses = parseInt(localStorage.getItem("losses")) || 0;
+    let ties = parseInt(localStorage.getItem("ties")) || 0;
+    let playerName = localStorage.getItem("playerName") || null;
+    let evilMode = localStorage.getItem("evilMode") === "true";
 
-    if(evilMode) document.body.style.color = "red";
-
+    const audio = new Audio("sybau.mp3");
     let gameActive = true;
-    let awaitingPortal = false;
 
-    function println(text = "") {
-      terminal.innerText += text + "\n";
-      terminal.scrollTop = terminal.scrollHeight;
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    function saveMemory() {
-      localStorage.setItem("bonquasious_history", JSON.stringify(playerHistory));
-      localStorage.setItem("bonquasious_score", JSON.stringify(score));
-      localStorage.setItem("bonquasious_name", playerName);
-      localStorage.setItem("bonquasious_evil", evilMode);
+    async function typeText(text, delay = 25) {
+      for (let char of text) {
+        terminal.innerText += char;
+        terminal.scrollTop = terminal.scrollHeight;
+        await sleep(delay);
+      }
+      terminal.innerText += "\n";
     }
 
-    function bonquasiousIntro() {
-      println("Hi, I’m Bonquasious — the ultimate rock paper scissor AI!");
-      if(playerName) println(`Welcome back, ${playerName}!`);
-      if (playerHistory.length > 0) {
-        println(`I remember you. You've made ${playerHistory.length} moves so far >:)`);
-      }
-      println("Make your move, but I’ll win anyways");
-      println("Type: rock, paper, or scissors\n");
+    async function bonqSay(text, thinkDelay = 400, typeSpeed = 25) {
+      await sleep(thinkDelay);
+      await typeText(text, typeSpeed);
     }
 
-    function handleCommand(cmd) {
-      const lc = cmd.trim().toLowerCase();
-      println(">>> " + cmd);
+    function saveData() {
+      localStorage.setItem("playerHistory", JSON.stringify(playerHistory));
+      localStorage.setItem("wins", wins);
+      localStorage.setItem("losses", losses);
+      localStorage.setItem("ties", ties);
+      localStorage.setItem("playerName", playerName);
+      localStorage.setItem("evilMode", evilMode);
+    }
 
-      // Special commands
-      if(lc === "reset memory") {
-        playerHistory = [];
-        saveMemory();
-        println("Memory cleared. I forgot everything >:)");
-        return;
+    async function intro() {
+      if (playerName) {
+        await bonqSay(`Welcome back, ${playerName}. I remember you... >:)`);
+        await bonqSay(`You've played ${playerHistory.length} moves so far.`);
+      } else {
+        await bonqSay("Hi, I’m Bonquasious — the ultimate rock paper scissor AI! >:)");
       }
-      if(lc === "reset score") {
-        score = {wins:0, losses:0, ties:0};
-        saveMemory();
-        println("Score reset. Your victories mean nothing now >:)");
-        return;
-      }
-      if(lc === "score") {
-        println(`Wins: ${score.wins}, Losses: ${score.losses}, Ties: ${score.ties}`);
-        return;
-      }
-      if(lc === "stats") {
-        const total = score.wins + score.losses + score.ties;
-        const winRate = total === 0 ? 0 : ((score.wins/total)*100).toFixed(1);
-        println(`Games played: ${total}, Win rate: ${winRate}%  Still trash btw ;^)`);
-        return;
-      }
-      if(lc === "predict") {
-        let predicted = "rock";
-        if(playerHistory.length>0){
-          const counts = [0,0,0];
-          playerHistory.forEach(m=>counts[m]++);
-          const mostCommon = counts.indexOf(Math.max(...counts));
-          predicted = reverseMap[(mostCommon+1)%3];
-        }
-        println(`I predict you'll play ${predicted}. Am I right? Let's see >:)`);
-        return;
-      }
-      if(lc.startsWith("name:")) {
-        playerName = cmd.substring(5).trim();
-        saveMemory();
-        println(`Got it. I will remember your name is ${playerName}`);
-        if(playerName.toLowerCase() === "yana") {
-          const audio = new Audio("sybau.mp3");
+      await bonqSay("Make your move, but I’ll win anyway. Type: rock, paper, or scissors.");
+    }
+
+    function randomChoice(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    async function handleCommand(cmd) {
+      const playerMove = cmd.trim().toLowerCase();
+      if (!playerMove) return;
+      terminal.innerText += ">>> " + playerMove + "\n";
+
+      if (playerMove.startsWith("name:")) {
+        playerName = playerMove.split(":")[1].trim() || "Stranger";
+        localStorage.setItem("playerName", playerName);
+        await bonqSay(`Alright, ${playerName}. I’ll remember that. >:)`);
+        if (playerName.toLowerCase() === "yana") {
           audio.play();
         }
         return;
       }
-      if(lc === "evil mode") {
-        evilMode = !evilMode; // toggle
-        document.body.style.color = evilMode ? "red" : "#00ff66";
-        saveMemory();
-        if(evilMode) println("Graaaahhhh >:)");
-        else println("Back to normal :^)");
-        return;
-      }
-      if(lc === "debug") {
-        println("Debugging... Error 404: Your skill not found >:)");
-        return;
-      }
-      if(lc === "portal") {
-        println("To where? ;)");
-        awaitingPortal = true;
-        return;
-      }
-      if(awaitingPortal) {
-        awaitingPortal = false;
-        if(lc === "instagram") window.open("https://www.instagram.com/majidcoolgamer/", "_blank");
-        else if(lc === "tiktok") window.open("https://www.tiktok.com/@majidcoolgamer", "_blank");
-        else if(lc === "discord") println("majidcppro :^)");
-        else println("No portal available for that >:)");
+
+      if (playerMove === "reset memory") {
+        playerHistory = [];
+        saveData();
+        await bonqSay("All memories wiped... for now. >:)");
         return;
       }
 
-      // Regular game moves
-      if(!moveMap.hasOwnProperty(lc)) {
-        println(randomChoice(incorrectTaunts));
+      if (playerMove === "reset score") {
+        wins = losses = ties = 0;
+        saveData();
+        await bonqSay("Score reset. Fresh start, huh? :^)");
         return;
       }
 
-      const playerMoveNum = moveMap[lc];
+      if (playerMove === "score") {
+        await bonqSay(`Wins: ${wins}, Losses: ${losses}, Ties: ${ties}`);
+        return;
+      }
+
+      if (playerMove === "stats") {
+        const total = wins + losses + ties;
+        const winRate = total ? ((wins / total) * 100).toFixed(1) : 0;
+        await bonqSay(`Games played: ${total}, Win rate: ${winRate}%`);
+        await bonqSay("Still trash anyhow. ;)");
+        return;
+      }
+
+      if (playerMove === "predict") {
+        if (playerHistory.length === 0) {
+          await bonqSay("I can't predict yet... you haven't played enough. >:(");
+          return;
+        }
+        const counts = [0, 0, 0];
+        playerHistory.forEach(m => counts[m]++);
+        const mostCommon = counts.indexOf(Math.max(...counts));
+        const predicted = reverseMap[(mostCommon + 1) % 3];
+        await bonqSay(`I predict you'll play ${reverseMap[mostCommon]}...`);
+        await bonqSay(`So I’ll go with ${predicted}. Am I right? Let's see. >:)`);
+        return;
+      }
+
+      if (playerMove === "evil mode") {
+        evilMode = !evilMode;
+        if (evilMode) {
+          document.body.style.color = "#ff3333";
+          document.getElementById("prompt").style.color = "#ff3333";
+          document.getElementById("input-line").style.borderTop = "1px solid #ff3333";
+          await bonqSay("Graaaahhhh! >:D");
+        } else {
+          document.body.style.color = "#00ff66";
+          document.getElementById("prompt").style.color = "#00ff66";
+          document.getElementById("input-line").style.borderTop = "1px solid #00ff66";
+          await bonqSay("Back to normal... for now. B)");
+        }
+        saveData();
+        return;
+      }
+
+      if (playerMove === "debug") {
+        await bonqSay("Debugging... Error 404: Your skill not found. ;)");
+        return;
+      }
+
+      if (playerMove === "portal") {
+        await bonqSay("To where?");
+        gameActive = "portal";
+        return;
+      }
+
+      if (gameActive === "portal") {
+        terminal.innerText += ">>> " + playerMove + "\n";
+        if (playerMove === "instagram") {
+          window.location.href = "https://www.instagram.com/majidcoolgamer/";
+        } else if (playerMove === "tiktok") {
+          window.location.href = "https://www.tiktok.com/@majidcoolgamer";
+        } else if (playerMove === "discord") {
+          await bonqSay("Discord username: majidcppro");
+        } else {
+          await bonqSay("That portal doesn’t exist... yet. >:)");
+        }
+        gameActive = true;
+        return;
+      }
+
+      if (!moveMap.hasOwnProperty(playerMove)) {
+        await bonqSay(randomChoice(incorrectTaunts));
+        return;
+      }
+
+      const playerMoveNum = moveMap[playerMove];
       let computerMoveNum;
-      if(playerHistory.length === 0) {
+
+      if (playerHistory.length === 0) {
         computerMoveNum = Math.floor(Math.random() * 3);
       } else {
         const counts = [0, 0, 0];
@@ -197,58 +240,54 @@
 
       const computerMove = reverseMap[computerMoveNum];
       const result = (computerMoveNum - playerMoveNum + 3) % 3;
-      let outcome;
 
-      if(result === 0) {
-        outcome = "Tie! :^)";
-        score.ties++;
-      } else if(result === 1) {
+      let outcome;
+      if (result === 0) {
+        outcome = "Tie!";
+        ties++;
+      } else if (result === 1) {
         outcome = randomChoice(winTaunts);
-        score.wins++;
+        wins++;
       } else {
         outcome = randomChoice(loseTaunts);
-        score.losses++;
+        losses++;
       }
 
       playerHistory.push(playerMoveNum);
-      saveMemory();
+      saveData();
 
-      println(`Bonquasious plays: ${computerMove}`);
-      if(playerName) outcome = `${playerName}, ${outcome}`;
-      println(outcome + "\n");
-      println("Play again? (y/n)");
+      await bonqSay(`Bonquasious plays: ${computerMove}`);
+      await bonqSay(outcome);
+      await bonqSay("Play again? (y/n)");
       gameActive = false;
     }
 
-    function handleYN(cmd) {
+    async function handleYN(cmd) {
       const ans = cmd.trim().toLowerCase();
-      println(">>> " + ans);
-      if(ans === "y") {
-        println("Alright, let's go again ;)");
-        println("rock, paper or scissors?");
+      terminal.innerText += ">>> " + ans + "\n";
+      if (ans === "y") {
+        await bonqSay("Alright, let's go again! B)");
+        await bonqSay("rock, paper or scissors?");
         gameActive = true;
-      } else if(ans === "n") {
-        println("Coward. See you next time :^)");
+      } else if (ans === "n") {
+        await bonqSay("Coward. See you next time. ;)");
         input.disabled = true;
       } else {
-        println("Type y or n, genius >:)");
+        await bonqSay("Type y or n, genius. >:|");
       }
     }
 
-    function randomChoice(arr) {
-      return arr[Math.floor(Math.random() * arr.length)];
-    }
-
-    input.addEventListener("keydown", (e) => {
-      if(e.key === "Enter") {
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
         const cmd = input.value.trim();
         input.value = "";
-        if(gameActive) handleCommand(cmd);
-        else handleYN(cmd);
+        if (gameActive === true) handleCommand(cmd);
+        else if (gameActive === false) handleYN(cmd);
+        else handleCommand(cmd);
       }
     });
 
-    bonquasiousIntro();
+    intro();
   </script>
 </body>
 </html>
